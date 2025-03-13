@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function () {
       window.WordPressWebSocket.send(JSON.stringify(data));
     }
 
-    // 更新 WordPress 內部資料
+    // ✅ 發送 AJAX，儲存最新的超音波數據
     saveUltrasonicDataToWordPress(data);
   };
 
@@ -168,22 +168,29 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 });
 
-/**
- * 將 Django WebSocket 資料存入 WordPress
- */
 function saveUltrasonicDataToWordPress(data) {
+  if (!data.ultrasonic1 || !data.ultrasonic2) {
+    console.error("🚨 無效的超音波數據:", data);
+    return;
+  }
+
   fetch(wp_ajax.ajax_url, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      action: "wp_django_save_ultrasonic",
-      ultrasonic1: 41,
-      ultrasonic2: 39,
+      action: "wp_django_save_ultrasonic", // ✅ 確保 `action` 參數存在
+      ultrasonic1: data.ultrasonic1,
+      ultrasonic2: data.ultrasonic2,
     }),
   })
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`❌ HTTP 錯誤! 狀態碼: ${response.status}`);
+      }
+      return response.json();
+    })
     .then((data) => console.log("✅ WordPress API 回應:", data))
     .catch((error) => console.error("🚨 AJAX 失敗:", error));
 }
