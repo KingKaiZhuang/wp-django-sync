@@ -3,7 +3,7 @@
  * Plugin Name: WP Django Sync (WebSocket)
  * Description: 透過 WebSocket 即時同步 Django 資料
  * Version: 1.0.2
- * Author: Your Name
+ * Author: 莊鈞凱
  */
 
 if (!defined('ABSPATH')) {
@@ -206,10 +206,17 @@ function wp_django_display_user_data($atts) {
                                 <h5 class="card-title"><?php echo $classification_text; ?></h5>
                                 <p class="text-muted"><i class="far fa-clock"></i> <?php echo esc_html($record->created_at); ?></p>
                             </div>
+                            <div class="card-footer text-center">
+                                <p class="btn btn-danger delete-record-btn" data-record-id="<?php echo esc_attr($record->id); ?>">
+                                    刪除
+                                </p>
+                            </div>
                         </div>
                     </a>
+                    <!-- ✅ 加入刪除按鈕 -->
                 </div>
             <?php endforeach; ?>
+
         </div>
 
 
@@ -276,3 +283,121 @@ function wp_django_upload_image() {
 }
 add_action('wp_ajax_wp_django_upload_image', 'wp_django_upload_image');
 add_action('wp_ajax_nopriv_wp_django_upload_image', 'wp_django_upload_image');
+
+/**
+ * AJAX 刪除記錄
+ */
+function wp_django_delete_record() {
+    if (!is_user_logged_in()) {
+        wp_send_json_error("❌ 未登入用戶");
+    }
+
+    if (!isset($_POST['record_id'])) {
+        wp_send_json_error("❌ 缺少記錄 ID");
+    }
+
+    global $wpdb;
+    $user_id = get_current_user_id();
+    $table_name = $wpdb->prefix . 'django_classifications';
+
+    // 驗證記錄是否屬於該用戶
+    $record_id = intval($_POST['record_id']);
+    $record = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d AND user_id = %d", $record_id, $user_id));
+
+    if (!$record) {
+        wp_send_json_error("❌ 記錄不存在或無權限刪除");
+    }
+
+    // 刪除記錄
+    $wpdb->delete($table_name, array('id' => $record_id));
+
+    wp_send_json_success("✅ 記錄已刪除");
+}
+add_action('wp_ajax_wp_django_delete_record', 'wp_django_delete_record');
+
+// 超音波距離
+
+/**
+ * 創建超音波感測資料表
+ */
+function wp_django_create_ultrasonic_table() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'django_ultrasonic_data';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT(20) UNSIGNED NOT NULL,
+        ultrasonic1 INT NOT NULL,
+        ultrasonic2 INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) $charset_collate;";
+
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+register_activation_hook(__FILE__, 'wp_django_create_ultrasonic_table');
+
+/**
+ * AJAX 儲存 Django WebSocket 傳來的超音波數據
+ */
+function wp_django_save_ultrasonic() {
+    // ✅ 檢查請求是否帶有數據
+    if (!isset($_POST['ultrasonic1']) || !isset($_POST['ultrasonic2'])) {
+        wp_send_json_error(["message" => "❌ 缺少 ultrasonic 數據"]);
+    }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'django_ultrasonic_data';
+
+    // ✅ 插入數據
+    $result = $wpdb->insert($table_name, [
+        "ultrasonic1" => intval($_POST["ultrasonic1"]),
+        "ultrasonic2" => intval($_POST["ultrasonic2"]),
+        "created_at" => current_time("mysql")
+    ]);
+
+    if ($result === false) {
+        wp_send_json_error(["message" => "❌ 資料儲存失敗"]);
+    } else {
+        wp_send_json_success(["message" => "✅ 超音波數據已儲存"]);
+    }
+
+    exit(); // ❗ 確保 WordPress 停止執行，防止意外回傳 `0`
+}
+
+// ✅ 註冊 AJAX API
+add_action("wp_ajax_wp_django_save_ultrasonic", "wp_django_save_ultrasonic");
+add_action("wp_ajax_nopriv_wp_django_save_ultrasonic", "wp_django_save_ultrasonic"); // 允許未登入用戶請求
+
+
+/**
+ * 在 WordPress Admin Bar 顯示超音波感測數據
+ */
+function wp_django_add_ultrasonic_status($wp_admin_bar) {
+    if (is_user_logged_in()) {
+        $args = array(
+            'id'    => 'wp_django_ultrasonic_status',
+            'title' => '📡 超音波感測: --',
+            'href'  => '#'
+        );
+        $wp_admin_bar->add_node($args);
+    }
+}
+add_action('admin_bar_menu', 'wp_django_add_ultrasonic_status', 100);
+
+/**
+ * 更新 Admin Bar 顯示的超音波感測數據
+ */
+function wp_django_update_admin_bar() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'django_ultrasonic_data';
+
+    $latest = $wpdb->get_row("SELECT * FROM $table_name ORDER BY created_at DESC LIMIT 1");
+    if ($latest) {
+        echo "<script>
+            document.getElementById('wp-admin-bar-wp_django_ultrasonic_status').innerText = '📡 超音波感測: {$latest->ultrasonic1}, {$latest->ultrasonic2}';
+        </script>";
+    }
+}
+add_action('wp_footer', 'wp_django_update_admin_bar');

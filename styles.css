@@ -5,26 +5,69 @@
   border-radius: 15px; /* 圓角 */
   overflow: hidden;
   transition: all 0.3s ease-in-out;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6); /* 初始陰影 */
-  border: 1px solid rgba(255, 255, 255, 0.1); /* 邊框有點透明 */
+  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.6); /* 陰影加強 */
+  border: 1px solid rgba(255, 255, 255, 0.15); /* 更微妙的透明邊框 */
 }
 
 /* 讓圖片有點圓角 */
 .cool-card img {
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
+  transition: transform 0.3s ease-in-out;
 }
 
 /* 當滑鼠懸停時，增加霓虹燈效果 */
 .cool-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 8px 16px rgba(0, 255, 170, 0.6); /* 霓虹綠色陰影 */
+}
+
+/* 讓圖片在懸停時稍微放大 */
+.cool-card:hover img {
   transform: scale(1.05);
 }
 
 /* 文字部分的設計 */
 .cool-card .card-body {
   padding: 15px;
-  background: rgba(255, 255, 255, 0.05); /* 讓內容區塊更有層次感 */
+  background: rgba(255, 255, 255, 0.08); /* 讓內容區塊更有層次感 */
   border-bottom-left-radius: 15px;
   border-bottom-right-radius: 15px;
-  transition: all 0.3s;
+  transition: background 0.3s ease-in-out;
+}
+
+/* 懸停時，讓背景變亮一點 */
+.cool-card:hover .card-body {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 🛑 刪除按鈕樣式 */
+.cool-card .card-footer {
+  background: rgba(255, 255, 255, 0.05); /* 淡淡的背景 */
+  padding: 10px;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 15px;
+  text-align: center;
+}
+
+/* 刪除按鈕樣式 */
+.delete-record-btn {
+  background: #ff4d4d; /* 紅色按鈕 */
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  border-radius: 8px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* 按鈕懸停效果 */
+.delete-record-btn:hover {
+  background: #ff1a1a;
+  transform: scale(1.1);
+}
+
+/* 按鈕點擊時的效果 */
+.delete-record-btn:active {
+  transform: scale(0.95);
 }

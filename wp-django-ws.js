@@ -32,23 +32,20 @@ function connectWebSocket() {
 }
 
 function wp_django_save_to_user(data) {
-  // ✅ 先確保 `data.image` 存在
   if (!data.image || data.image.trim() === "") {
     console.log("❌ [WordPress] 未收到圖片數據，跳過圖片上傳");
     data.image_url = "";
-    sendDataToServer(data); // 直接儲存
+    sendDataToServer(data);
     return;
   }
 
-  // ✅ 先上傳圖片，取得 URL 後再存入 WordPress
   wp_django_upload_image(data.image, function (image_url) {
     console.log("📸 [WordPress] 圖片已成功上傳: ", image_url);
-    data.image_url = image_url; // ✅ 新增 image_url
+    data.image_url = image_url;
     sendDataToServer(data);
   });
 }
 
-// ✅ 將資料傳送至 WordPress AJAX
 function sendDataToServer(data) {
   const ajaxurl = wp_ajax.ajax_url;
   const requestData = {
@@ -56,7 +53,7 @@ function sendDataToServer(data) {
     labels: JSON.stringify(data.labels),
     classification: data.classification,
     analysis: data.analysis,
-    image_url: data.image_url || "", // ✅ 確保不為 undefined
+    image_url: data.image_url || "",
   };
 
   jQuery
@@ -88,4 +85,105 @@ function wp_django_upload_image(imageBase64, callback) {
       callback("");
     },
   });
+}
+
+/**
+ * ✅ 初始化所有刪除按鈕
+ */
+document.addEventListener("DOMContentLoaded", function () {
+  initializeDeleteButtons();
+});
+
+/**
+ * ✅ 綁定刪除按鈕點擊事件
+ */
+function initializeDeleteButtons() {
+  document.querySelectorAll(".delete-record-btn").forEach((button) => {
+    button.addEventListener("click", function () {
+      const recordId = this.getAttribute("data-record-id");
+      deleteRecord(recordId);
+    });
+  });
+}
+
+/**
+ * ✅ 刪除記錄函式
+ * @param {number} recordId - 要刪除的記錄 ID
+ */
+function deleteRecord(recordId) {
+  if (!confirm("確定要刪除此記錄嗎？")) return;
+
+  fetch(wp_ajax.ajax_url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      action: "wp_django_delete_record",
+      record_id: recordId,
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        alert(data.data);
+        location.reload(); // ✅ 重新整理頁面以更新記錄列表
+      } else {
+        alert(data.data);
+      }
+    })
+    .catch((error) => {
+      console.error("❌ 刪除失敗:", error);
+      alert("❌ 刪除失敗，請稍後再試");
+    });
+}
+
+// 超音波距離
+document.addEventListener("DOMContentLoaded", function () {
+  const djangoSocket = new WebSocket("ws://127.0.0.1:8000/ws/ultrasonic/");
+
+  djangoSocket.onopen = function () {
+    console.log("✅ 連接到 Django WebSocket - Ultrasonic Sensor");
+  };
+
+  djangoSocket.onmessage = function (event) {
+    let data = JSON.parse(event.data);
+    console.log("📩 收到 Django WebSocket 數據:", data);
+
+    // 在 WordPress WebSocket 內部觸發事件（如果插件支援）
+    if (typeof window.WordPressWebSocket !== "undefined") {
+      window.WordPressWebSocket.send(JSON.stringify(data));
+    }
+
+    // 更新 WordPress 內部資料
+    saveUltrasonicDataToWordPress(data);
+  };
+
+  djangoSocket.onclose = function (event) {
+    console.log("❌ Django WebSocket 斷線:", event);
+  };
+
+  djangoSocket.onerror = function (error) {
+    console.error("🚨 Django WebSocket 錯誤:", error);
+  };
+});
+
+/**
+ * 將 Django WebSocket 資料存入 WordPress
+ */
+function saveUltrasonicDataToWordPress(data) {
+  fetch(wp_ajax.ajax_url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      action: "wp_django_save_ultrasonic",
+      ultrasonic1: 41,
+      ultrasonic2: 39,
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => console.log("✅ WordPress API 回應:", data))
+    .catch((error) => console.error("🚨 AJAX 失敗:", error));
 }
